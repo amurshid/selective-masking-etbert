@@ -1,153 +1,90 @@
-# ET-BERT: A Contextualized Datagram Representation with Pre-training Transformers for Encrypted Traffic Classification
+# Selective Header Masking for Robust Encrypted Traffic Classification
 
-<!-- 
-[![codebeat badge](https://codebeat.co/badges/f75fab90-6d00-44b4-bb42-d19067400243)](https://codebeat.co/projects/github-com-linwhitehat-et-bert-main) 
-![](https://img.shields.io/badge/license-MIT-000000.svg) 
-[![arXiv](https://img.shields.io/badge/arXiv-1909.05658-<color>.svg)](https://arxiv.org/abs/2202.06335) 
--->
+Encrypted traffic classifiers built on pre-trained transformers reach near-perfect
+accuracy on clean benchmarks, but much of that accuracy rests on a handful of
+transport-layer header bytes. When those bytes are missing or corrupted in the
+field — partial captures, middlebox rewriting, truncation — accuracy can collapse
+without warning.
 
-<p align="center">
-  <a href=''><img src='https://img.shields.io/badge/License-MIT-brightgreen'></a> 
-  <a href='https://arxiv.org/abs/2202.06335'><img src='https://img.shields.io/badge/arXiv-1909.05658-<color>.svg'></a> 
-  <a href='https://dl.acm.org/doi/10.1145/3485447.3512217' target='_blank'><img src="https://img.shields.io/badge/WWW'22-Paper-blue"></a>
-</p>
+This project introduces **selective header masking**: a lightweight change to the
+fine-tuning recipe that randomly hides the residual TCP-header tokens during
+training, forcing the model to rely on the rest of the packet. The result is a
+classifier that degrades *gracefully* instead of catastrophically.
 
-**Note:**
-- ⭐ **Please leave a <font color='orange'>STAR</font> if you like this project!** ⭐
-- If you find any <font color='red'>incorrect</font> / <font color='red'>inappropriate</font> / <font color='red'>outdated</font> content, please kindly consider opening an issue or a PR. 
+> Built on [ET-BERT](https://github.com/linwhitehat/ET-BERT) (Lin et al., WWW '22).
+> See [Acknowledgements](#acknowledgements).
 
-**The repository of ET-BERT, a network traffic classification model on encrypted traffic.**
+## Headline result
 
-ET-BERT is a method for learning datagram contextual relationships from encrypted traffic, which could be **directly applied to different encrypted traffic scenarios and accurately identify classes of traffic**. First, ET-BERT employs multi-layer attention in large scale unlabelled traffic to learn both inter-datagram contextual and inter-traffic transport relationships. Second, ET-BERT could be applied to a specific scenario to identify traffic types by fine-tuning the labeled encrypted traffic on a small scale.
+Under progressive header degradation on **USTC-TFC2016** (20 classes), our masked
+model's macro-F1 drops by only **0.15** across full header masking, versus **0.46**
+for a conventionally fine-tuned baseline — a roughly **3× smaller** degradation.
 
-![The framework of ET-BERT](images/etbert.png)
+| Macro-F1 (header masked) | Clean | 50% | 100% |
+|--------------------------|:-----:|:---:|:----:|
+| Baseline                 | 0.976 | 0.652 | 0.514 |
+| **Ours (p = 0.7)**       | 0.960 | 0.836 | **0.807** |
 
-The work is introduced in the *[31st The Web Conference](https://www2022.thewebconf.org/)*:
-> Xinjie Lin, Gang Xiong, Gaopeng Gou, Zhen Li, Junzheng Shi and Jing Yu. 2022. ET-BERT: A Contextualized Datagram Representation with Pre-training Transformers for Encrypted Traffic Classification. In Proceedings of The Web Conference (WWW) 2022, Lyon, France. Association for Computing Machinery. 
+![Robustness under header degradation](results/fig_degradation.png)
 
-Note: this code is based on [UER-py](https://github.com/dbiir/UER-py). Many thanks to the authors.
-<br/>
+The gains hold even under a corruption pattern never seen during training
+(randomized rather than masked headers), indicating genuine robustness rather than
+memorization of a single failure mode. Full numbers are in
+[`results/degradation_results.csv`](results/degradation_results.csv).
 
-Table of Contents
-=================
-  * [Requirements](#requirements)
-  * [Datasets](#datasets)
-  * [Using ET-BERT](#using-et-bert)
-  * [Reproduce ET-BERT](#reproduce-et-bert)
-  * [Citation](#citation)
-  * [Contact](#contact)
-  * [Sponsor](#buy-me-a-coffee)
-<br/>
+## What's new in this repo
 
-## Requirements
-* Python >= 3.6
-* CUDA: 11.4
-* GPU: Tesla V100S
-* torch >= 1.1
-* six >= 1.12.0
-* scapy == 2.4.4
-* numpy == 1.19.2
-* shutil, random, json, pickle, binascii, flowcontainer
-* argparse
-* packaging
-* tshark
-* [SplitCap](https://www.netresec.com/?page=SplitCap)
-* [scikit-learn](https://scikit-learn.org/stable/)
-* For the mixed precision training you will need apex from NVIDIA
-* For the pre-trained model conversion (related with TensorFlow) you will need TensorFlow
-* For the tokenization with wordpiece model you will need [WordPiece](https://github.com/huggingface/tokenizers)
-* For the use of CRF in sequence labeling downstream task you will need [pytorch-crf](https://github.com/kmkurn/pytorch-crf)
-<br/>
+The contribution is implemented in these files (everything else is the ET-BERT base):
 
-## Datasets
-The real-world TLS 1.3 dataset is collected from March to July 2021 on China Science and Technology Network (CSTNET). For privacy considerations, we only release the anonymous data (see in [CSTNET-TLS 1.3](CSTNET-TLS%201.3/readme.md)).
+| File | Purpose |
+|------|---------|
+| [`fine-tuning/run_classifier_mask.py`](fine-tuning/run_classifier_mask.py) | Fine-tuning with selective header masking (`--mask_rate`, `--header_tokens`, `--mask_op`) |
+| [`make_degraded_tests.py`](make_degraded_tests.py) | Builds degraded test sets (mask / random corruption, 0–100%) |
+| [`eval_degradation.py`](eval_degradation.py) | Evaluation-only sweep producing the degradation matrix |
+| [`plot_degradation.py`](plot_degradation.py) | Generates the IEEE robustness figure |
 
-Other datasets we used for comparison experiments are publicly available, see the [paper](https://arxiv.org/abs/2202.06335) for more details. If you want to use your own data, please check if the data format is the same as `datasets/cstnet-tls1.3/` and specify the data path in `data_process/`.
+## Reproducing the experiments
 
-<br/>
+1. **Environment** — Python 3.10, PyTorch 2.x. Works on CUDA or Apple MPS.
+2. **Data** — Obtain [USTC-TFC2016](https://github.com/yungshenglu/USTC-TFC2016) and
+   preprocess with `data_process/` into train/valid/test TSVs. See that script for
+   the pipeline (byte-bigram tokenization; the first 38 bytes — Ethernet + IPv4 +
+   ports — are stripped, leaving the 16-byte residual TCP header as the masking target).
+3. **Pre-trained model** — download `pre-trained_model.bin` from the
+   [ET-BERT release](https://github.com/linwhitehat/ET-BERT).
+4. **Fine-tune with masking:**
+   ```bash
+   PYTHONPATH=. python -u fine-tuning/run_classifier_mask.py \
+     --pretrained_model_path models/pre-trained_model.bin \
+     --vocab_path models/encryptd_vocab.txt \
+     --train_path datasets/<your>/train_dataset.tsv \
+     --dev_path   datasets/<your>/valid_dataset.tsv \
+     --test_path  datasets/<your>/test_dataset.tsv \
+     --epochs_num 10 --batch_size 32 --seq_length 128 --learning_rate 2e-5 \
+     --embedding word_pos_seg --encoder transformer --mask fully_visible \
+     --mask_rate 0.7 --header_tokens 16 --mask_op mask \
+     --output_model_path models/finetuned_masked_p70.bin
+   ```
+5. **Build degraded tests, evaluate, and plot:**
+   ```bash
+   python make_degraded_tests.py
+   python eval_degradation.py
+   python plot_degradation.py   # -> results/fig_degradation.pdf
+   ```
 
-## Using ET-BERT
-You can now use ET-BERT directly through the pre-trained [model](https://drive.google.com/file/d/1r1yE34dU2W8zSqx1FkB8gCWri4DQWVtE/view?usp=sharing) or download via:
-```
-wget -O pretrained_model.bin https://drive.google.com/file/d/1r1yE34dU2W8zSqx1FkB8gCWri4DQWVtE/view?usp=sharing
-```
+> Trained weights (`*.bin`) and datasets are not tracked here due to size; the steps
+> above reproduce them from the public ET-BERT base model and USTC-TFC2016.
 
-After obtaining the pre-trained model, ET-BERT could be applied to the spetic task by fine-tuning at packet-level with labeled network traffic:
-```
-python3 fine-tuning/run_classifier.py --pretrained_model_path models/pre-trained_model.bin \
-                                   --vocab_path models/encryptd_vocab.txt \
-                                   --train_path datasets/cstnet-tls1.3/packet/train_dataset.tsv \
-                                   --dev_path datasets/cstnet-tls1.3/packet/valid_dataset.tsv \
-                                   --test_path datasets/cstnet-tls1.3/packet/test_dataset.tsv \
-                                   --epochs_num 10 --batch_size 32 --embedding word_pos_seg \
-                                   --encoder transformer --mask fully_visible \
-                                   --seq_length 128 --learning_rate 2e-5
-```
+## Acknowledgements
 
-The default path of the fine-tuned classifier model is `models/finetuned_model.bin`. Then you can do inference with the fine-tuned model:
-```
-python3 inference/run_classifier_infer.py --load_model_path models/finetuned_model.bin \
-                                          --vocab_path models/encryptd_vocab.txt \
-                                          --test_path datasets/cstnet-tls1.3/packet/nolabel_test_dataset.tsv \
-                                          --prediction_path datasets/cstnet-tls1.3/packet/prediction.tsv \
-                                          --labels_num 120 \
-                                          --embedding word_pos_seg --encoder transformer --mask fully_visible
-```
-<br/>
+This work builds directly on **ET-BERT**:
 
-## Reproduce ET-BERT
-### Pre-process
-To reproduce the steps necessary to pre-train ET-BERT on network traffic data, follow the following steps:
- 1. Run `vocab_process/main.py` to generate the encrypted traffic corpus or directly use the generated corpus in `corpora/`. Note you'll need to change the file paths and some configures at the top of the file.
- 2. Run `main/preprocess.py` to pre-process the encrypted traffic burst corpus.
-    ```
-       python3 preprocess.py --corpus_path corpora/encrypted_traffic_burst.txt \
-                             --vocab_path models/encryptd_vocab.txt \
-                             --dataset_path dataset.pt --processes_num 8 --target bert
-    ```
- 3. Run `data_process/main.py` to generate the data for downstream tasks if there is a dataset in pcap format that needs to be processed. This process includes two steps. The first is to split pcap files by setting `splitcap=True` in `datasets/main.py:54`  and save as `npy` datasets. Then the second is to generate the fine-tuning data. If you use the shared datasets, then you need to create a folder under the `dataset_save_path` named `dataset` and copy the datasets here.
+> Xinjie Lin, Gang Xiong, Gaopeng Gou, Zhen Li, Junzheng Shi, Jing Yu.
+> *ET-BERT: A Contextualized Datagram Representation with Pre-training Transformers
+> for Encrypted Traffic Classification.* WWW 2022.
+> [Paper](https://dl.acm.org/doi/10.1145/3485447.3512217) ·
+> [Code](https://github.com/linwhitehat/ET-BERT)
 
-### Pre-training
-To reproduce the steps necessary to finetune ET-BERT on labeled data, run `pretrain.py` to pre-train. If one wishes to continue training on an already pre-trained model, the parameter `--pretrained_model_path` a can be increased.
-```
-   python3 pre-training/pretrain.py --dataset_path dataset.pt --vocab_path models/encryptd_vocab.txt \
-                       --output_model_path models/pre-trained_model.bin \
-                       --world_size 8 --gpu_ranks 0 1 2 3 4 5 6 7 \
-                       --total_steps 500000 --save_checkpoint_steps 10000 --batch_size 32 \
-                       --embedding word_pos_seg --encoder transformer --mask fully_visible --target bert
-```
-
-### Fine-tuning on downstream tasks
-To see an example of how to use ET-BERT for the encrypted traffic classification tasks, go to the [Using ET-BERT](#using-et-bert) and `run_classifier.py` script in the `fine-tuning` folder.
-
-Note: you'll need to change the path in programes.
-<br/>
-
-## Citation
-#### If you are using the work (e.g. pre-trained model) in ET-BERT for academic work, please cite the [paper](https://dl.acm.org/doi/10.1145/3485447.3512217) published in WWW 2022:
-
-```
-@inproceedings{lin2022etbert,
-  author    = {Xinjie Lin and
-               Gang Xiong and
-               Gaopeng Gou and
-               Zhen Li and
-               Junzheng Shi and
-               Jing Yu},
-  title     = {{ET-BERT:} {A} Contextualized Datagram Representation with Pre-training
-               Transformers for Encrypted Traffic Classification},
-  booktitle = {{WWW} '22: The {ACM} Web Conference 2022, Virtual Event, Lyon, France,
-               April 25 - 29, 2022},
-  pages     = {633--642},
-  publisher = {{ACM}},
-  year      = {2022}
-}
-```
-
-<br/>
-
-## Contact
-Please post a Github issue if you have any questions. Welcome to discuss new ideas, techniques, and improvements!
-
-## Buy Me a Coffee
-If you find it useful and want to say thanks, I'd appreciate it if you bought me a coffee! It helps keep the motivation and the energy high!
+The base model architecture, tokenization, and pre-training code originate from the
+ET-BERT repository (MIT License). The selective masking strategy, degradation
+protocol, evaluation sweep, and analysis in this repository are my own contribution.

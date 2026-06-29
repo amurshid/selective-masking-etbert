@@ -1,0 +1,48 @@
+# Trained model weights (large; see README for how to obtain / reproduce)
+*.bin
+
+# Datasets (large; see README for the USTC-TFC2016 source + preprocessing)
+datasets/
+
+# Results folder: ignore everything except the headline data + the README figure
+results/*
+!results/degradation_results.csv
+!results/fig_degradation.png
+
+# Training / evaluation logs
+*.log
+
+# WSL-specific helpers and config files
+wsl_fixed/
+*_config.json
+
+# Paper source
+main.tex
+*.aux
+*.out
+*.synctex.gz
+
+# Python cache & build
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+build/
+dist/
+
+# Environments
+venv/
+env/
+.env
+
+# IDE & OS cruft
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/

@@ -1,6 +1,7 @@
 """
 This script provides an exmaple to wrap UER-py for classification.
 """
+import os
 import random
 import argparse
 import torch
@@ -82,7 +83,7 @@ def count_labels_num(path):
 def load_or_initialize_parameters(args, model):
     if args.pretrained_model_path is not None:
         # Initialize with pretrained model.
-        model.load_state_dict(torch.load(args.pretrained_model_path, map_location={'cuda:1':'cuda:0', 'cuda:2':'cuda:0', 'cuda:3':'cuda:0'}), strict=False)
+        model.load_state_dict(torch.load(args.pretrained_model_path, map_location="cpu"), strict=False)
     else:
         # Initialize with normal distribution.
         for n, p in list(model.named_parameters()):
@@ -224,7 +225,8 @@ def evaluate(args, dataset, print_confusion_matrix=False):
         print("Confusion matrix:")
         print(confusion)
         cf_array = confusion.numpy()
-        with open("/data2/lxj/pre-train/results/confusion_matrix",'w') as f:
+        os.makedirs("results", exist_ok=True)
+        with open("results/confusion_matrix",'w') as f:
             for cf_a in cf_array:
                 f.write(str(cf_a)+'\n')
         print("Report precision, recall, and f1:")
@@ -281,7 +283,12 @@ def main():
     # Load or initialize parameters.
     load_or_initialize_parameters(args, model)
 
-    args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if torch.backends.mps.is_available():
+        args.device = torch.device("mps")
+    elif torch.cuda.is_available():
+        args.device = torch.device("cuda:0")
+    else:
+        args.device = torch.device("cpu")
     model = model.to(args.device)
 
     # Training phase.

@@ -99,7 +99,12 @@ def main():
     model = load_model(model, args.load_model_path)
 
     # For simplicity, we use DataParallel wrapper to use multiple GPUs.
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
     model = model.to(device)
     if torch.cuda.device_count() > 1:
         print("{} GPUs are available. Let's use them.".format(torch.cuda.device_count()))

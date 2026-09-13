@@ -1,0 +1,16 @@
+model,mode,degradation_pct,delta_vs_baseline,ci_lo,ci_hi,excludes_zero
+masked_p100,clean,0,-0.0538,-0.0582,-0.0495,yes
+masked_p100,hotflip,0,0.1073,0.1010,0.1137,yes
+masked_p100,transplant,0,0.1166,0.1101,0.1232,yes
+normalize_p100,clean,0,-0.0460,-0.0501,-0.0420,yes
+normalize_p100,hotflip,0,0.1147,0.1086,0.1213,yes
+normalize_p100,transplant,0,0.1211,0.1144,0.1280,yes
+normalize_p70,clean,0,-0.0147,-0.0176,-0.0119,yes
+normalize_p70,hotflip,0,0.1108,0.1050,0.1168,yes
+normalize_p70,transplant,0,0.1170,0.1105,0.1231,yes
+ours_p50,clean,0,-0.0075,-0.0100,-0.0052,yes
+ours_p50,hotflip,0,0.1034,0.0976,0.1090,yes
+ours_p50,transplant,0,0.1074,0.1012,0.1134,yes
+ours_p70,clean,0,-0.0159,-0.0190,-0.0131,yes
+ours_p70,hotflip,0,0.1118,0.1058,0.1176,yes
+ours_p70,transplant,0,0.1171,0.1109,0.1233,yes

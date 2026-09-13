@@ -1,0 +1,6 @@
+phase,variant,parameters,ms_mean,ms_sd,peak_mem_mb
+train_step,baseline (no suppression),132141332,646.67,1.59,1612.7
+train_step,masking p=0.7,132141332,646.98,1.53,1548.2
+train_step,normalization p=0.7,132141332,649.13,3.66,1548.2
+train_step,normalization p=1.0,132141332,648.37,4.44,1548.2
+inference,unmodified at test time,132141332,201.59,0.22,1548.2

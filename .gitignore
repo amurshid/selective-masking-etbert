@@ -6,8 +6,20 @@ datasets/
 
 # Results folder: ignore everything except the headline data + the README figure
 results/*
+# Result tables cited in the paper are tracked; model weights, prediction
+# dumps, and intermediate backups are not.
 !results/degradation_results.csv
+!results/degradation_perclass.csv
+!results/bootstrap_ci.csv
+!results/bootstrap_paired.csv
+!results/bootstrap_headline.csv
+!results/adversarial_results.csv
+!results/adversarial_bootstrap_ci.csv
+!results/adversarial_bootstrap_paired.csv
+!results/strip54_results.csv
+!results/overhead.csv
 !results/fig_degradation.png
+!results/fig_perclass_bar.png
 
 # Training / evaluation logs
 *.log

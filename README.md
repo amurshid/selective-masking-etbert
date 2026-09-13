@@ -11,26 +11,50 @@ fine-tuning recipe that randomly hides the residual TCP-header tokens during
 training, forcing the model to rely on the rest of the packet. The result is a
 classifier that degrades *gracefully* instead of catastrophically.
 
+> **Accepted at IEEE CCSS 2026** (full paper, oral presentation). DOI to follow
+> once the proceedings appear on IEEE Xplore.
+>
 > Built on [ET-BERT](https://github.com/linwhitehat/ET-BERT) (Lin et al., WWW '22).
 > See [Acknowledgements](#acknowledgements).
 
 ## Headline result
 
-Under progressive header degradation on **USTC-TFC2016** (20 classes), our masked
-model's macro-F1 drops by only **0.15** across full header masking, versus **0.46**
-for a conventionally fine-tuned baseline — a roughly **3× smaller** degradation.
+Under progressive header degradation on **USTC-TFC2016** (20 classes), a
+conventionally fine-tuned classifier loses most of its discriminative ability
+when the residual TCP header is removed. Suppressing that region during
+fine-tuning largely prevents the collapse.
 
-| Macro-F1 (header masked) | Clean | 50% | 100% |
+Averaged over three random seeds, **normalization retains 0.846 macro-F1 under
+complete header loss where the baseline retains 0.528** — and it does so with
+roughly five times less variance from one training run to the next.
+
+| Macro-F1, header omitted | Clean | 50% | 100% |
 |--------------------------|:-----:|:---:|:----:|
 | Baseline                 | 0.976 | 0.652 | 0.514 |
-| **Ours (p = 0.7)**       | 0.960 | 0.836 | **0.807** |
+| Masking (p = 0.7)        | 0.960 | 0.836 | 0.807 |
+| **Normalization (p = 0.7)** | 0.961 | 0.842 | **0.871** |
+
+*Single seed (7), matching the per-model tables. Across seeds 7/17/27 the
+baseline spans 0.389–0.680 at full omission (sd 0.146) while normalization
+spans 0.819–0.871 (sd 0.026).*
 
 ![Robustness under header degradation](results/fig_degradation.png)
 
-The gains hold even under a corruption pattern never seen during training
-(randomized rather than masked headers), indicating genuine robustness rather than
-memorization of a single failure mode. Full numbers are in
-[`results/degradation_results.csv`](results/degradation_results.csv).
+The gains hold under a corruption pattern never seen during training
+(randomized rather than omitted headers) and under deliberate adversarial
+manipulation, indicating genuine header-invariance rather than memorization of
+a single failure mode. Clean-data accuracy costs about 1.6 points.
+
+### Other results
+
+| Experiment | Finding |
+|------------|---------|
+| Adversarial header manipulation | Baseline loses 17.8 macro-F1 points to a black-box header transplant and 20.4 to a white-box gradient attack; suppression retains 10–12 points more under both |
+| Deterministic removal | Extending the prefix strip from 38 to 54 bytes is invariant by construction and *beats* suppression under full omission (0.947 vs 0.897), but cannot classify 4.1% of packets, concentrated in malware |
+| Suppressed region size | 16 tokens, the true residual header, is the empirical optimum; 8 leaves exploitable bytes, 24 and 32 eat into the payload |
+| Overhead | No added parameters, inference unchanged, training step cost below 0.4% |
+
+Every number above is reproducible from the tables in [`results/`](results/).
 
 ## What's new in this repo
 
@@ -38,12 +62,29 @@ The contribution is implemented in these files (everything else is the ET-BERT b
 
 | File | Purpose |
 |------|---------|
-| [`fine-tuning/run_classifier_mask.py`](fine-tuning/run_classifier_mask.py) | Fine-tuning with selective header masking (`--mask_rate`, `--header_tokens`, `--mask_op`) |
-| [`make_degraded_tests.py`](make_degraded_tests.py) | Builds degraded test sets (mask / random corruption, 0–100%) |
+| [`fine-tuning/run_classifier_mask.py`](fine-tuning/run_classifier_mask.py) | Fine-tuning with selective header suppression (`--mask_rate`, `--header_tokens`, `--mask_op`) |
+| [`make_degraded_tests.py`](make_degraded_tests.py) | Builds degraded test sets (omission / randomization / zeroing, 0–100%) |
+| [`make_stripped_dataset.py`](make_stripped_dataset.py) | Builds the 38→54 byte deterministic-strip variant |
 | [`eval_degradation.py`](eval_degradation.py) | Evaluation-only sweep producing the degradation matrix |
-| [`plot_degradation.py`](plot_degradation.py) | Generates the IEEE robustness figure |
+| [`eval_preds.py`](eval_preds.py) | Per-sample prediction export, for resampling-based analysis |
+| [`eval_strip54.py`](eval_strip54.py) | Scores the deterministic-strip baseline on a common packet subset |
+| [`adversarial_header.py`](adversarial_header.py) | Header transplantation and HotFlip attacks |
+| [`bench_overhead.py`](bench_overhead.py) | Training and inference overhead measurement |
+| [`bootstrap_ci.py`](bootstrap_ci.py) | Paired bootstrap confidence intervals |
+| [`plot_degradation.py`](plot_degradation.py), [`plot_perclass_bar.py`](plot_perclass_bar.py) | Figures |
+| [`reproduce.sh`](reproduce.sh) | Rebuilds figures from tracked tables; `all` runs the full pipeline |
 
 ## Reproducing the experiments
+
+The figures rebuild from a fresh clone, since the result tables are tracked:
+
+```bash
+pip install -r requirements.txt
+./reproduce.sh              # -> results/fig_degradation.pdf, fig_perclass_bar.pdf
+```
+
+Rebuilding the tables themselves needs the dataset and the pre-trained
+checkpoint, and roughly 50 GPU-hours to fine-tune the ten variants:
 
 1. **Environment** — Python 3.10, PyTorch 2.x. Works on CUDA or Apple MPS.
 2. **Data** — Obtain [USTC-TFC2016](https://github.com/yungshenglu/USTC-TFC2016) and
@@ -74,6 +115,33 @@ The contribution is implemented in these files (everything else is the ET-BERT b
 
 > Trained weights (`*.bin`) and datasets are not tracked here due to size; the steps
 > above reproduce them from the public ET-BERT base model and USTC-TFC2016.
+
+## What the peer review changed
+
+The submitted version was revised in response to two reviews. Two of the
+changes altered conclusions rather than presentation, and are worth stating
+plainly.
+
+**A reviewer proposed a simpler baseline, and it wins in one regime.** Rather
+than suppressing the header stochastically, extend ET-BERT's prefix strip from
+38 to 54 bytes and delete the region outright. Measured on the packets both
+methods can process, that baseline is flat at 0.947 macro-F1 and therefore
+*beats* normalization under complete header omission, where normalization falls
+to 0.897. It is reported that way in the paper. The case for suppression rests
+on the rest of the picture: 1.9 points more clean accuracy, graceful degradation
+across the range rather than a fixed ceiling, and full coverage, since a 54-byte
+strip is longer than 4.1% of packets and those cannot be classified at all.
+Their flat 0.947 is also independent evidence for the paper's central claim,
+because it shows payload structure alone supports accurate classification.
+
+**Running multiple seeds invalidated the headline number.** The submission
+claimed a "fivefold" reduction in degradation. Bootstrap resampling put that at
+5.11× with a 95% interval of [4.81, 5.42], already below the threshold. Training
+at three seeds then showed the ratio ranges 2.12× to 5.28×, because the
+*baseline's* collapse is highly seed-dependent (0.389 to 0.680) while
+normalization is stable (0.819 to 0.871). A ratio of two noisy quantities was
+the wrong statistic. The headline was rewritten in absolute terms, which is
+stable, and the variance reduction became a finding in its own right.
 
 ## Acknowledgements
 

@@ -34,19 +34,22 @@ plt.rcParams.update({"font.size": 8, "font.family": "serif",
                      "axes.grid": True, "grid.linestyle": ":",
                      "grid.linewidth": 0.5, "grid.alpha": 0.5})
 
-fig, axes = plt.subplots(3, 1, figsize=(3.4, 5.4), sharex=True, sharey=True)
+fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.15), sharex=True, sharey=True)  # wide: spans both columns
 for ax, (mode, title) in zip(axes, PANELS):
     for key, label, ls, mk in MODELS:
         ax.plot(LEVELS, series(key, mode), color="black", linestyle=ls, marker=mk,
                 markersize=4, linewidth=1.0, markerfacecolor="white", label=label)
     ax.set_title(title, fontsize=8)
-    ax.set_ylabel("Macro-F1", fontsize=8)
     ax.set_xticks(LEVELS)
     ax.tick_params(labelsize=7)
     ax.set_ylim(ymin, 1.0)
-axes[-1].set_xlabel("Header degradation (%)", fontsize=8)
-axes[0].legend(loc="lower left", fontsize=6.5, framealpha=0.9)
-fig.tight_layout()
+axes[0].set_ylabel("Macro-F1", fontsize=8)
+for ax in axes:
+    ax.set_xlabel("Header degradation (%)", fontsize=8)
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.02),
+           ncol=4, fontsize=7, frameon=False)
+fig.tight_layout(rect=[0, 0.05, 1, 1])
 fig.savefig("results/fig_degradation.pdf", bbox_inches="tight")
 fig.savefig("results/fig_degradation.png", dpi=300, bbox_inches="tight")
 print("saved -> results/fig_degradation.pdf and results/fig_degradation.png")

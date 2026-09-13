@@ -1,4 +1,12 @@
-torch>=1.0
-argparse
-six>=1.12.0
-packaging
+# Reported results were produced with Python 3.10.20 on macOS (Apple Silicon,
+# MPS backend). The code is device-agnostic and selects CUDA when available,
+# but the CUDA path is untested here.
+# Versions below are lower bounds; the pinned versions used for the reported
+# results are given in the comments.
+
+torch>=2.0            # 2.12.1
+numpy>=1.24           # 2.2.6
+matplotlib>=3.7       # 3.10.9
+tqdm>=4.60
+six>=1.12.0           # required by UER-py
+packaging>=20.0       # required by UER-py

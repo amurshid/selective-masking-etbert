@@ -18,6 +18,8 @@ wsl_fixed/
 
 # Paper source
 main.tex
+Selective_header_masking.tex
+Draft_Selective_Header_Masking.pdf
 *.aux
 *.out
 *.synctex.gz
@@ -46,3 +48,10 @@ env/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Guide .md files 
+CAMERA_READY_CHANGES.md
+RESEARCH_GUIDE.md
+
+conference-template-a4.docx
+

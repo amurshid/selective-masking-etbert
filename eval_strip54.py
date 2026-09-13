@@ -26,7 +26,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-REPO = "/Users/ahnaf/Projects/ET-BERT"
+REPO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, REPO); sys.path.insert(0, os.path.join(REPO, "fine-tuning"))
 
 from run_classifier import Classifier, read_dataset, batch_loader, count_labels_num  # noqa

@@ -13,7 +13,7 @@ Writes:
 import os, sys, csv, argparse
 import torch
 
-REPO = "/Users/ahnaf/Projects/ET-BERT"
+REPO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, REPO); sys.path.insert(0, os.path.join(REPO, "fine-tuning"))
 
 from run_classifier import Classifier, read_dataset, evaluate, count_labels_num

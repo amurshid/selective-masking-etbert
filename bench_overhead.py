@@ -17,7 +17,7 @@ import os, sys, csv, time, argparse
 import numpy as np
 import torch
 
-REPO = "/Users/ahnaf/Projects/ET-BERT"
+REPO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, REPO); sys.path.insert(0, os.path.join(REPO, "fine-tuning"))
 
 from run_classifier_mask import Classifier, read_dataset, batch_loader, count_labels_num, apply_header_mask
